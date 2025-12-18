@@ -23,6 +23,7 @@ const VAPTFormSteps = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [submissionProgress, setSubmissionProgress] = useState(0);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const [formData, setFormData] = useState({
     organizationName: '',
@@ -70,6 +71,14 @@ const VAPTFormSteps = () => {
     }
     
     setFormData(prev => ({ ...prev, [field]: filteredValue }));
+    // Clear error for this field when user starts typing
+    if (fieldErrors[field]) {
+      setFieldErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
   };
 
   const handleCheckboxChange = (field, value, checked) => {
@@ -98,6 +107,12 @@ const VAPTFormSteps = () => {
     return mobileRegex.test(mobile);
   };
 
+  const validateEmail = (email) => {
+    // Email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email) && email.trim().length > 0;
+  };
+
   const validateAlphabetsOnly = (value) => {
     // Only alphabets and spaces allowed
     const alphabetRegex = /^[a-zA-Z\s]+$/;
@@ -113,58 +128,54 @@ const VAPTFormSteps = () => {
   const validateIPRange = (ipRange) => {
     if (!ipRange || ipRange.trim() === '') return false;
     
-    // Split by comma to handle multiple IPs/ranges
-    const parts = ipRange.split(',').map(part => part.trim());
-    
-    for (const part of parts) {
-      // Check for CIDR notation (e.g., 192.168.1.0/24)
-      if (part.includes('/')) {
-        const [ip, cidr] = part.split('/');
-        if (!validateIPAddress(ip) || !validateCIDR(cidr)) {
-          return false;
-        }
-      }
-      // Check for IP range (e.g., 192.168.1.0-192.168.1.255)
-      else if (part.includes('-')) {
-        const [startIP, endIP] = part.split('-').map(p => p.trim());
-        if (!validateIPAddress(startIP) || !validateIPAddress(endIP)) {
-          return false;
-        }
-      }
-      // Check for single IP address
-      else {
-        if (!validateIPAddress(part)) {
-          return false;
-        }
-      }
-    }
-    return true;
-  };
-
-  const validateIPAddress = (ip) => {
-    // Updated regex to properly handle all valid IP addresses including those with 0
-    // Allows: 0-255 in each octet
-    const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$/;
-    return ipRegex.test(ip);
-  };
-
-  const validateCIDR = (cidr) => {
-    const cidrNum = parseInt(cidr, 10);
-    return !isNaN(cidrNum) && cidrNum >= 0 && cidrNum <= 32;
+    // Only allow numeric characters and special characters (., /, -, comma, space)
+    // This allows any combination of numbers and these special characters
+    const ipFormatRegex = /^[0-9.\/\-\s,]+$/;
+    return ipFormatRegex.test(ipRange);
   };
 
   const validateStep = (step) => {
+    const errors = {};
     switch(step) {
       case 1:
-        if (!formData.organizationName || !formData.primaryContactName || !formData.email || !formData.mobileNumber) {
+        if (!formData.organizationName) errors.organizationName = true;
+        if (!formData.primaryContactName) errors.primaryContactName = true;
+        if (!formData.designation || formData.designation.trim() === '') errors.designation = true;
+        if (!formData.email) errors.email = true;
+        if (!formData.mobileNumber) errors.mobileNumber = true;
+        
+        if (!formData.organizationName || !formData.primaryContactName || !formData.designation || formData.designation.trim() === '' || !formData.email || !formData.mobileNumber) {
+          setFieldErrors(errors);
           toast({
             title: "Missing Information",
-            description: "Please fill in all required fields (Organization Name, Contact Name, Email, Mobile Number).",
+            description: "Please fill in all required fields (Organization Name, Contact Name, Designation, Email, Mobile Number).",
+            variant: "destructive"
+          });
+          return false;
+        }
+        if (!validateEmail(formData.email)) {
+          errors.email = true;
+          setFieldErrors(errors);
+          toast({
+            title: "Invalid Email",
+            description: "Please enter a valid email address.",
+            variant: "destructive"
+          });
+          return false;
+        }
+        if (formData.secondaryEmail && !validateEmail(formData.secondaryEmail)) {
+          errors.secondaryEmail = true;
+          setFieldErrors(errors);
+          toast({
+            title: "Invalid Secondary Email",
+            description: "Please enter a valid secondary email address.",
             variant: "destructive"
           });
           return false;
         }
         if (!validateAlphabetsOnly(formData.primaryContactName)) {
+          errors.primaryContactName = true;
+          setFieldErrors(errors);
           toast({
             title: "Invalid Contact Name",
             description: "Primary contact name must contain only alphabets and spaces.",
@@ -172,7 +183,9 @@ const VAPTFormSteps = () => {
           });
           return false;
         }
-        if (formData.designation && !validateAlphabetsOnly(formData.designation)) {
+        if (!validateAlphabetsOnly(formData.designation)) {
+          errors.designation = true;
+          setFieldErrors(errors);
           toast({
             title: "Invalid Designation",
             description: "Designation must contain only alphabets and spaces.",
@@ -181,6 +194,8 @@ const VAPTFormSteps = () => {
           return false;
         }
         if (!validateMobileNumber(formData.mobileNumber)) {
+          errors.mobileNumber = true;
+          setFieldErrors(errors);
           toast({
             title: "Invalid Mobile Number",
             description: "Mobile number must be 10 digits and start with 6, 7, 8, or 9.",
@@ -189,6 +204,8 @@ const VAPTFormSteps = () => {
           return false;
         }
         if (formData.secondaryMobileNumber && !validateMobileNumber(formData.secondaryMobileNumber)) {
+          errors.secondaryMobileNumber = true;
+          setFieldErrors(errors);
           toast({
             title: "Invalid Secondary Mobile Number",
             description: "Secondary mobile number must be 10 digits and start with 6, 7, 8, or 9.",
@@ -196,6 +213,7 @@ const VAPTFormSteps = () => {
           });
           return false;
         }
+        setFieldErrors({});
         return true;
       case 2:
         if (!formData.assessmentType || !formData.testingMode) {
@@ -224,7 +242,12 @@ const VAPTFormSteps = () => {
         }
         return true;
       case 3:
+        const errors3 = {};
+        if (!formData.deviceCount || formData.deviceCount.trim() === '') errors3.deviceCount = true;
+        if (!formData.environmentType || formData.environmentType.trim() === '') errors3.environmentType = true;
+        
         if (!formData.deviceCount || formData.deviceCount.trim() === '') {
+          setFieldErrors(errors3);
           toast({
             title: "Missing Information",
             description: "Please enter the number of devices in scope.",
@@ -233,6 +256,8 @@ const VAPTFormSteps = () => {
           return false;
         }
         if (!validateDeviceCount(formData.deviceCount)) {
+          errors3.deviceCount = true;
+          setFieldErrors(errors3);
           toast({
             title: "Invalid Device Count",
             description: "Device count must be exactly 4 digits.",
@@ -241,6 +266,7 @@ const VAPTFormSteps = () => {
           return false;
         }
         if (!formData.environmentType || formData.environmentType.trim() === '') {
+          setFieldErrors(errors3);
           toast({
             title: "Missing Information",
             description: "Please enter the environment type.",
@@ -248,12 +274,15 @@ const VAPTFormSteps = () => {
           });
           return false;
         }
+        setFieldErrors({});
         return true;
       case 4:
         // No validation needed for step 4
         return true;
       case 5:
+        const errors5 = {};
         if (!formData.vpnAccess && !formData.testCredentials) {
+          setFieldErrors(errors5);
           toast({
             title: "Missing Information",
             description: "Please select at least one access requirement (VPN access or Test credentials).",
@@ -262,6 +291,8 @@ const VAPTFormSteps = () => {
           return false;
         }
         if (formData.testCredentials && !formData.accountType) {
+          errors5.accountType = true;
+          setFieldErrors(errors5);
           toast({
             title: "Missing Information",
             description: "Please select the type of account when test credentials are required.",
@@ -269,9 +300,15 @@ const VAPTFormSteps = () => {
           });
           return false;
         }
+        setFieldErrors({});
         return true;
       case 6:
+        const errors6 = {};
+        if (!formData.reportFormat) errors6.reportFormat = true;
+        if (formData.retestingRequired === undefined || formData.retestingRequired === null) errors6.retestingRequired = true;
+        
         if (!formData.reportFormat) {
+          setFieldErrors(errors6);
           toast({
             title: "Missing Information",
             description: "Please select a report format.",
@@ -279,7 +316,8 @@ const VAPTFormSteps = () => {
           });
           return false;
         }
-        if (!formData.retestingRequired) {
+        if (formData.retestingRequired === undefined || formData.retestingRequired === null) {
+          setFieldErrors(errors6);
           toast({
             title: "Missing Information",
             description: "Please confirm if retesting is required.",
@@ -287,6 +325,7 @@ const VAPTFormSteps = () => {
           });
           return false;
         }
+        setFieldErrors({});
         return true;
       default:
         return true;
@@ -306,16 +345,48 @@ const VAPTFormSteps = () => {
   };
 
   const handleSubmit = async () => {
-    if (!formData.organizationName || !formData.primaryContactName || !formData.email || !formData.mobileNumber) {
+    const errors = {};
+    if (!formData.organizationName) errors.organizationName = true;
+    if (!formData.primaryContactName) errors.primaryContactName = true;
+    if (!formData.designation || formData.designation.trim() === '') errors.designation = true;
+    if (!formData.email) errors.email = true;
+    if (!formData.mobileNumber) errors.mobileNumber = true;
+    
+    if (!formData.organizationName || !formData.primaryContactName || !formData.designation || formData.designation.trim() === '' || !formData.email || !formData.mobileNumber) {
+      setFieldErrors(errors);
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields.",
+        description: "Please fill in all required fields (Organization Name, Contact Name, Designation, Email, Mobile Number).",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!validateEmail(formData.email)) {
+      errors.email = true;
+      setFieldErrors(errors);
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (formData.secondaryEmail && !validateEmail(formData.secondaryEmail)) {
+      errors.secondaryEmail = true;
+      setFieldErrors(errors);
+      toast({
+        title: "Invalid Secondary Email",
+        description: "Please enter a valid secondary email address.",
         variant: "destructive"
       });
       return;
     }
 
     if (!validateAlphabetsOnly(formData.primaryContactName)) {
+      errors.primaryContactName = true;
+      setFieldErrors(errors);
       toast({
         title: "Invalid Contact Name",
         description: "Primary contact name must contain only alphabets and spaces.",
@@ -324,7 +395,9 @@ const VAPTFormSteps = () => {
       return;
     }
 
-    if (formData.designation && !validateAlphabetsOnly(formData.designation)) {
+    if (!validateAlphabetsOnly(formData.designation)) {
+      errors.designation = true;
+      setFieldErrors(errors);
       toast({
         title: "Invalid Designation",
         description: "Designation must contain only alphabets and spaces.",
@@ -432,6 +505,7 @@ const VAPTFormSteps = () => {
                     onChange={(e) => handleInputChange('organizationName', e.target.value)}
                     placeholder="Enter organization name"
                     required
+                    className={fieldErrors.organizationName ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
                 </div>
                 <div className="space-y-2">
@@ -440,8 +514,9 @@ const VAPTFormSteps = () => {
                     id="primaryContactName"
                     value={formData.primaryContactName}
                     onChange={(e) => handleInputChange('primaryContactName', e.target.value)}
-                    placeholder="Enter contact name (alphabets only)"
+                    placeholder="Enter contact name"
                     required
+                    className={fieldErrors.primaryContactName ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
                   {formData.primaryContactName && !validateAlphabetsOnly(formData.primaryContactName) && (
                     <p className="text-sm text-red-500">Contact name must contain only alphabets and spaces</p>
@@ -455,7 +530,8 @@ const VAPTFormSteps = () => {
                     id="designation"
                     value={formData.designation}
                     onChange={(e) => handleInputChange('designation', e.target.value)}
-                    placeholder="e.g., IT Manager (alphabets only)"
+                    placeholder="e.g., IT Manager"
+                    className={fieldErrors.designation ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
                   {formData.designation && !validateAlphabetsOnly(formData.designation) && (
                     <p className="text-sm text-red-500">Designation must contain only alphabets and spaces</p>
@@ -470,7 +546,11 @@ const VAPTFormSteps = () => {
                     onChange={(e) => handleInputChange('email', e.target.value)}
                     placeholder="email@cyberaran.com"
                     required
+                    className={fieldErrors.email ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  {formData.email && !validateEmail(formData.email) && (
+                    <p className="text-sm text-red-500">Please enter a valid email address</p>
+                  )}
                 </div>
               </div>
               <div className="space-y-2">
@@ -488,7 +568,7 @@ const VAPTFormSteps = () => {
                     placeholder="9876543210"
                     maxLength={10}
                     required
-                    className="rounded-l-none"
+                    className={`rounded-l-none ${fieldErrors.mobileNumber ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                   />
                 </div>
               </div>
@@ -506,13 +586,17 @@ const VAPTFormSteps = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="secondaryEmail">Email</Label>
-                    <Input
+                      <Input
                       id="secondaryEmail"
                       type="email"
                       value={formData.secondaryEmail}
                       onChange={(e) => handleInputChange('secondaryEmail', e.target.value)}
                       placeholder="email@cyberaran.com"
+                      className={fieldErrors.secondaryEmail ? "border-red-500 focus-visible:ring-red-500" : ""}
                     />
+                    {formData.secondaryEmail && !validateEmail(formData.secondaryEmail) && (
+                      <p className="text-sm text-red-500">Please enter a valid email address</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="secondaryMobileNumber">Mobile Number</Label>
@@ -528,7 +612,7 @@ const VAPTFormSteps = () => {
                         }}
                         placeholder="9876543210"
                         maxLength={10}
-                        className="rounded-l-none"
+                        className={`rounded-l-none ${fieldErrors.secondaryMobileNumber ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                       />
                     </div>
                   </div>
@@ -550,7 +634,11 @@ const VAPTFormSteps = () => {
             <CardContent className="space-y-6 pt-6">
               <div className="space-y-3">
                 <Label className="text-base">Type of Assessment Required *</Label>
-                <RadioGroup value={formData.assessmentType} onValueChange={(value) => handleInputChange('assessmentType', value)}>
+                <RadioGroup 
+                  value={formData.assessmentType} 
+                  onValueChange={(value) => handleInputChange('assessmentType', value)}
+                  className={fieldErrors.assessmentType ? "ring-2 ring-red-500 rounded-md p-2" : ""}
+                >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="External Network VAPT" id="external" />
                     <label htmlFor="external" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
@@ -574,7 +662,11 @@ const VAPTFormSteps = () => {
 
               <div className="space-y-3">
                 <Label className="text-base">Mode of Testing *</Label>
-                <RadioGroup value={formData.testingMode} onValueChange={(value) => handleInputChange('testingMode', value)}>
+                <RadioGroup 
+                  value={formData.testingMode} 
+                  onValueChange={(value) => handleInputChange('testingMode', value)}
+                  className={fieldErrors.testingMode ? "ring-2 ring-red-500 rounded-md p-2" : ""}
+                >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="In-house / On-site Testing" id="onsite" />
                     <label htmlFor="onsite" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
@@ -625,6 +717,7 @@ const VAPTFormSteps = () => {
                   onChange={(e) => handleInputChange('ipRange', e.target.value)}
                   placeholder="Example: 192.168.1.0/24, 10.0.0.10-10.0.0.50, 192.168.1.1"
                   required
+                  className={fieldErrors.ipRange ? "border-red-500 focus-visible:ring-red-500" : ""}
                 />
                 {formData.ipRange && !validateIPRange(formData.ipRange) && (
                   <p className="text-sm text-red-500">Please enter a valid IP address, IP range, or CIDR notation</p>
@@ -638,6 +731,7 @@ const VAPTFormSteps = () => {
                   value={formData.publicIPs}
                   onChange={(e) => handleInputChange('publicIPs', e.target.value)}
                   placeholder="Example: 203.0.113.1, 198.51.100.1"
+                  className={fieldErrors.publicIPs ? "border-red-500 focus-visible:ring-red-500" : ""}
                 />
                 {formData.publicIPs && !validateIPRange(formData.publicIPs) && (
                   <p className="text-sm text-red-500">Please enter a valid IP address, IP range, or CIDR notation</p>
@@ -689,6 +783,7 @@ const VAPTFormSteps = () => {
                   placeholder="Enter 4-digit number (e.g., 1234)"
                   required
                   maxLength="4"
+                  className={fieldErrors.deviceCount ? "border-red-500 focus-visible:ring-red-500" : ""}
                 />
                 {formData.deviceCount && !validateDeviceCount(formData.deviceCount) && (
                   <p className="text-sm text-red-500">Device count must be exactly 4 digits</p>
@@ -701,7 +796,10 @@ const VAPTFormSteps = () => {
                   onValueChange={(value) => handleInputChange('environmentType', value)}
                   required
                 >
-                  <SelectTrigger id="environmentType">
+                  <SelectTrigger 
+                    id="environmentType"
+                    className={fieldErrors.environmentType ? "border-red-500 focus:ring-red-500" : ""}
+                  >
                     <SelectValue placeholder="Select environment type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -845,7 +943,12 @@ const VAPTFormSteps = () => {
               {formData.testCredentials && (
                 <div className="space-y-2 pl-4">
                   <Label>Type of account *</Label>
-                  <RadioGroup value={formData.accountType} onValueChange={(value) => handleInputChange('accountType', value)} required>
+                  <RadioGroup 
+                    value={formData.accountType} 
+                    onValueChange={(value) => handleInputChange('accountType', value)} 
+                    required
+                    className={fieldErrors.accountType ? "ring-2 ring-red-500 rounded-md p-2" : ""}
+                  >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="User" id="user" />
                       <label htmlFor="user" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
@@ -877,7 +980,12 @@ const VAPTFormSteps = () => {
             <CardContent className="space-y-4 pt-6">
               <div className="space-y-2">
                 <Label>Report Format Required *</Label>
-                <RadioGroup value={formData.reportFormat} onValueChange={(value) => handleInputChange('reportFormat', value)} required>
+                <RadioGroup 
+                  value={formData.reportFormat} 
+                  onValueChange={(value) => handleInputChange('reportFormat', value)} 
+                  required
+                  className={fieldErrors.reportFormat ? "ring-2 ring-red-500 rounded-md p-2" : ""}
+                >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="Technical Report" id="tech" />
                     <label htmlFor="tech" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
@@ -994,8 +1102,8 @@ const VAPTFormSteps = () => {
           <div className="flex justify-center mb-4">
             <Shield className="h-16 w-16 text-slate-700" />
           </div>
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">Network VAPT Assessment</h1>
-          <p className="text-slate-600">Initial Information Form - Step {currentStep} of {totalSteps}</p>
+          <h1 className="text-4xl font-bold text-slate-900 mb-2">Network VAPT</h1>
+          <p className="text-slate-600">Initial Information Form</p>
         </div>
 
         {/* Progress Bar */}
