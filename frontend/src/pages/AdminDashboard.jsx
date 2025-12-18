@@ -83,13 +83,9 @@ const AdminDashboard = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {submission.assessmentType.map((type, idx) => (
-                              <Badge key={idx} variant="secondary" className="text-xs">
-                                {type}
-                              </Badge>
-                            ))}
-                          </div>
+                          <Badge variant="secondary" className="text-xs">
+                            {submission.assessmentType || (Array.isArray(submission.assessmentType) ? submission.assessmentType.join(', ') : 'N/A')}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">{submission.testingMode}</Badge>
@@ -122,14 +118,14 @@ const AdminDashboard = () => {
                                     <p><strong>Organization:</strong> {submission.organizationName}</p>
                                     <p><strong>Contact:</strong> {submission.primaryContactName} ({submission.designation})</p>
                                     <p><strong>Email:</strong> {submission.email}</p>
-                                    <p><strong>Phone:</strong> {submission.phone}</p>
+                                    <p><strong>Mobile Number:</strong> {submission.mobileNumber || submission.phone}</p>
                                   </div>
                                 </div>
 
                                 <div>
                                   <h3 className="font-semibold text-sm text-slate-700 mb-2">Scope Information</h3>
                                   <div className="space-y-1 text-sm">
-                                    <p><strong>Assessment Type:</strong> {submission.assessmentType.join(', ')}</p>
+                                    <p><strong>Assessment Type:</strong> {Array.isArray(submission.assessmentType) ? submission.assessmentType.join(', ') : submission.assessmentType}</p>
                                     <p><strong>Testing Mode:</strong> {submission.testingMode}</p>
                                     {submission.complianceRequired && (
                                       <p><strong>Compliance:</strong> {submission.complianceType}</p>
@@ -192,6 +188,15 @@ const AdminDashboard = () => {
                                     <p className="text-sm text-slate-600">{submission.additionalNotes}</p>
                                   </div>
                                 )}
+
+                                <div>
+                                  <h3 className="font-semibold text-sm text-slate-700 mb-2">Submission Information</h3>
+                                  <div className="space-y-1 text-sm">
+                                    <p><strong>Submission ID:</strong> {submission.id}</p>
+                                    <p><strong>Submitted Date & Time:</strong> {submission.submittedDateTime || formatDate(submission.submittedAt)}</p>
+                                    <p><strong>User IP Address:</strong> {submission.userIPAddress || 'N/A'}</p>
+                                  </div>
+                                </div>
                               </div>
                             </SheetContent>
                           </Sheet>

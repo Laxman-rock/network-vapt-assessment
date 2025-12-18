@@ -34,13 +34,70 @@ export const mockSubmissions = [
   }
 ];
 
-export const saveSubmission = (formData) => {
+export const saveSubmission = async (formData) => {
+  // Automatically fetch user's IP address
+  let userIP = 'Unknown';
+  try {
+    const response = await fetch('https://api.ipify.org?format=json', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    if (response.ok) {
+      const data = await response.json();
+      userIP = data.ip || 'Unknown';
+    }
+  } catch (error) {
+    console.error('Failed to get IP address automatically:', error);
+    // Try alternative IP service as fallback
+    try {
+      const fallbackResponse = await fetch('https://api64.ipify.org?format=json');
+      if (fallbackResponse.ok) {
+        const fallbackData = await fallbackResponse.json();
+        userIP = fallbackData.ip || 'Unknown';
+      }
+    } catch (fallbackError) {
+      console.error('Fallback IP service also failed:', fallbackError);
+    }
+  }
+
+  // Automatically capture current date and time
+  const now = new Date();
   const submissions = JSON.parse(localStorage.getItem('vaptSubmissions') || '[]');
+  
   const newSubmission = {
     ...formData,
     id: Date.now().toString(),
-    submittedAt: new Date().toISOString()
+    // ISO format for compatibility
+    submittedAt: now.toISOString(),
+    // Formatted date only
+    submittedDate: now.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }),
+    // Formatted time only
+    submittedTime: now.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    }),
+    // Combined date and time
+    submittedDateTime: now.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    }),
+    // Automatically captured IP address
+    userIPAddress: userIP
   };
+  
   submissions.push(newSubmission);
   localStorage.setItem('vaptSubmissions', JSON.stringify(submissions));
   return newSubmission;

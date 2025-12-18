@@ -17,7 +17,7 @@ def send_vapt_submission_email(form_data: dict):
     """
     sendgrid_api_key = os.getenv('SENDGRID_API_KEY')
     sender_email = os.getenv('SENDER_EMAIL', 'noreply@example.com')
-    recipient_email = os.getenv('RECIPIENT_EMAIL', 'admin@example.com')
+    recipient_email = sender_email  # Send to the same sender email address
     
     if not sendgrid_api_key:
         logger.warning("SendGrid API key not configured")
@@ -154,13 +154,20 @@ def send_vapt_submission_email(form_data: dict):
                     <p>{form_data.get('additionalNotes', 'None')}</p>
                 </div>''' if form_data.get('additionalNotes') else ''}
                 
-                <div class="field">
-                    <span class="field-label">Submission ID:</span>
-                    <span class="field-value">{form_data.get('id', 'N/A')}</span>
-                </div>
-                <div class="field">
-                    <span class="field-label">Submitted At:</span>
-                    <span class="field-value">{form_data.get('submittedAt', 'N/A')}</span>
+                <div class="section">
+                    <div class="section-title">Submission Information</div>
+                    <div class="field">
+                        <span class="field-label">Submission ID:</span>
+                        <span class="field-value">{form_data.get('id', 'N/A')}</span>
+                    </div>
+                    <div class="field">
+                        <span class="field-label">Submitted Date & Time:</span>
+                        <span class="field-value">{form_data.get('submittedDateTime', form_data.get('submittedAt', 'N/A'))}</span>
+                    </div>
+                    <div class="field">
+                        <span class="field-label">User IP Address:</span>
+                        <span class="field-value">{form_data.get('userIPAddress', 'N/A')}</span>
+                    </div>
                 </div>
             </div>
             
